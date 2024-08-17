@@ -11,7 +11,7 @@ let waitingPlayer = null;
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
 
-    socket.on('find_game', (userId) => {
+    socket.on('search_game', (userId) => {
         if (waitingPlayer === null) {
             waitingPlayer = { socket, userId };
             console.log(`Jugador 1 conectado: ${userId}`);
