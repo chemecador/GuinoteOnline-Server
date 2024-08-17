@@ -1,34 +1,49 @@
 import express from 'express';
-import { createServer } from 'node:http'
-import { Server } from 'socket.io'
+import { createServer } from 'http';
+import { Server } from 'socket.io';
 
-const app = express()
-const server = createServer(app)
-const io = new Server(server, {
-  connectionStateRecovery: {}
-})
+const app = express();
+const server = createServer(app);
+const io = new Server(server);
 
 let waitingPlayer = null;
 
 io.on('connection', (socket) => {
     console.log('A player connected:', socket.id);
 
-    socket.on('find_game', () => {
+    socket.on('find_game', (userId) => {
         if (waitingPlayer === null) {
-            waitingPlayer = socket;
-            socket.emit('waiting', { message: 'Waiting...' });
+            waitingPlayer = { socket, userId };
+            console.log(`Jugador 1 conectado: ${userId}`);
+            socket.emit('waiting', { message: 'Esperando rival...' });
         } else {
-            const gameId = `game_${socket.id}_${waitingPlayer.id}`;
+            const gameId = `game_${socket.id}_${waitingPlayer.socket.id}`;
             socket.join(gameId);
-            waitingPlayer.join(gameId);
-            io.to(gameId).emit('game_start', { gameId });
+            waitingPlayer.socket.join(gameId);
+    
+            console.log(`Jugador 2 conectado: ${userId}`);
+            console.log(`Emparejando jugadores: ${waitingPlayer.userId} vs ${userId}`);
+    
+            socket.emit('game_start', {
+                message: 'Partida encontrada',
+                gameId,
+                userId1: waitingPlayer.userId,
+                userId2: userId
+            });
+            waitingPlayer.socket.emit('game_start', {
+                message: 'Partida encontrada',
+                gameId,
+                userId1: waitingPlayer.userId,
+                userId2: userId
+            });
+
             waitingPlayer = null;
         }
     });
-
+    
     socket.on('disconnect', () => {
         console.log('A player disconnected:', socket.id);
-        if (waitingPlayer === socket) {
+        if (waitingPlayer && waitingPlayer.socket === socket) {
             waitingPlayer = null;
         }
     });
