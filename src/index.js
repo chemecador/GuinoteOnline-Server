@@ -3,10 +3,14 @@ import pool from './db.js';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import { handleGameConnection } from './controller/game-controller.js';
+import { errorHandler } from './middleware/error-handler.js';
+import authRoutes from './routes/auth-routes.js';
 
 const app = express();
 const server = createServer(app);
 const io = new Server(server);
+
+app.use(express.json());
 
 app.get('/testdb', async (req, res) => {
     try {
@@ -17,6 +21,10 @@ app.get('/testdb', async (req, res) => {
         res.status(500).json({ error: 'Database connection failed' });
     }
 });
+
+app.use('/auth', authRoutes);
+
+app.use(errorHandler);
 
 io.on('connection', (socket) => {
     handleGameConnection(io, socket);
