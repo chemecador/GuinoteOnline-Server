@@ -41,14 +41,18 @@ export const register = async (req, res, next) => {
             }
         });
     } catch (error) {
-        console.error('Error during user registration:', error.message);
-        next(error); // Pasar el error al middleware de manejo de errores
+        console.error('Error during user registration:', error);
+        next(error);
     }
 };
 
 
-export const login = async (req, res) => {
+export const login = async (req, res, next) => {
     const { email, password } = req.body;
+
+    if (!email || !password) {
+        return res.status(400).json({ message: 'Email and password are required' });
+    }
 
     try {
         const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -56,13 +60,13 @@ export const login = async (req, res) => {
         const user = result.rows[0];
 
         if (!user) {
-            return res.status(400).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid email or password' });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
 
         if (!isMatch) {
-            return res.status(400).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid email or password' });
         }
 
         const token = jwt.sign({ id: user.id, username: user.username, email: user.email }, jwtSecret, {
@@ -79,6 +83,7 @@ export const login = async (req, res) => {
             }
         });
     } catch (error) {
-        res.status(500).json({ message: 'Internal server error' });
+        console.error('Error during login:', error);
+        next(error);
     }
 };
