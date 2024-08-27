@@ -6,22 +6,22 @@ import pool from '../db.js';
 const jwtSecret = process.env.JWT_SECRET;
 
 export const register = async (req, res, next) => {
-    const { username, email, password } = req.body;
+    const { user, email, pass } = req.body;
 
-    if (!username || !email || !password) {
+    if (!user || !email || !pass) {
         return res.status(400).json({ message: 'All fields are required' });
     }
 
-    if (password.length < 6) {
+    if (pass.length < 6) {
         return res.status(400).json({ message: 'Password must be at least 6 characters long' });
     }
 
     try {
-        const hashedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword = await bcrypt.hash(pass, 10);
 
         const result = await pool.query(
             'INSERT INTO users (username, email, password) VALUES ($1, $2, $3) RETURNING *',
-            [username, email, hashedPassword]
+            [user, email, hashedPassword]
         );
 
         const user = result.rows[0];
@@ -48,28 +48,28 @@ export const register = async (req, res, next) => {
 
 
 export const login = async (req, res, next) => {
-    const { email, password } = req.body;
+    const { reqUser, reqPass } = req.body;
 
-    if (!email || !password) {
-        return res.status(400).json({ message: 'Email and password are required' });
+    if (!reqUser || !reqPass) {
+        return res.status(400).json({ message: 'Username and password are required' });
     }
 
     try {
-        const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+        const result = await pool.query('SELECT * FROM users WHERE username = $1', [reqUser]);
 
-        const user = result.rows[0];
+        const rowUser = result.rows[0];
 
-        if (!user) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+        if (!rowUser) {
+            return res.status(401).json({ message: 'Invalid username or password' });
         }
 
-        const isMatch = await bcrypt.compare(password, user.password);
+        const isMatch = await bcrypt.compare(reqPass, rowUser.password);
 
         if (!isMatch) {
-            return res.status(401).json({ message: 'Invalid email or password' });
+            return res.status(401).json({ message: 'Invalid username or password' });
         }
 
-        const token = jwt.sign({ id: user.id, username: user.username, email: user.email }, jwtSecret, {
+        const token = jwt.sign({ id: rowUser.id, username: rowUser.username, email: rowUser.email }, jwtSecret, {
             expiresIn: '1h'
         });
 
@@ -77,9 +77,9 @@ export const login = async (req, res, next) => {
             message: 'Login successful',
             token,
             user: {
-                id: user.id,
-                username: user.username,
-                email: user.email
+                id: rowUser.id,
+                username: rowUser.username,
+                email: rowUser.email
             }
         });
     } catch (error) {
