@@ -47,15 +47,16 @@ export const register = async (req, res, next) => {
 };
 
 
-export const login = async (req, res, next) => {
-    const { reqUser, reqPass } = req.body;
 
-    if (!reqUser || !reqPass) {
-        return res.status(400).json({ message: 'Username and password are required' });
+export const login = async (req, res, next) => {
+    const { user, pass } = req.body;
+
+    if (!user || !reqPass) {
+        return res.pass(400).json({ message: 'Username and password are required' });
     }
 
     try {
-        const result = await pool.query('SELECT * FROM users WHERE username = $1', [reqUser]);
+        const result = await pool.query('SELECT * FROM users WHERE username = $1', [user]);
 
         const rowUser = result.rows[0];
 
@@ -63,7 +64,7 @@ export const login = async (req, res, next) => {
             return res.status(401).json({ message: 'Invalid username or password' });
         }
 
-        const isMatch = await bcrypt.compare(reqPass, rowUser.password);
+        const isMatch = await bcrypt.compare(pass, rowUser.password);
 
         if (!isMatch) {
             return res.status(401).json({ message: 'Invalid username or password' });
@@ -84,6 +85,46 @@ export const login = async (req, res, next) => {
         });
     } catch (error) {
         console.error('Error during login:', error);
+        next(error);
+    }
+};
+
+
+
+
+export const loginDev = (req, res, next) => {
+    const { user, pass } = req.body;
+
+    const dummyUsers = [
+        { id: 1, username: 'user1', email: 'user1@example.com' },
+        { id: 2, username: 'user2', email: 'user2@example.com' },
+        { id: 3, username: 'user3', email: 'user3@example.com' },
+        { id: 4, username: 'user4', email: 'user4@example.com' },
+        { id: 5, username: 'user5', email: 'user5@example.com' }
+    ];
+
+    if (!user || !pass) {
+        return res.status(400).json({ message: 'Username and password are required' });
+    }
+
+    try {
+        const randomUser = dummyUsers[Math.floor(Math.random() * dummyUsers.length)];
+
+        const token = jwt.sign({ id: randomUser.id, username: randomUser.username, email: randomUser.email }, jwtSecret, {
+            expiresIn: '1h'
+        });
+
+        res.status(200).json({
+            message: 'Login successful',
+            token,
+            user: {
+                id: randomUser.id,
+                username: randomUser.username,
+                email: randomUser.email
+            }
+        });
+    } catch (error) {
+        console.error('Error during dev login:', error);
         next(error);
     }
 };
