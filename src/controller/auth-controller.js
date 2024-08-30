@@ -51,7 +51,7 @@ export const register = async (req, res, next) => {
 export const login = async (req, res, next) => {
     const { user, pass } = req.body;
 
-    if (!user || !reqPass) {
+    if (!user || !pass) {
         return res.pass(400).json({ message: 'Username and password are required' });
     }
 
