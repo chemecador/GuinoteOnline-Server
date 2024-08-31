@@ -27,7 +27,7 @@ export const register = async (req, res, next) => {
         const userRow = result.rows[0];
 
         const token = jwt.sign({ id: userRow.id, username: userRow.username, email: userRow.email }, jwtSecret, {
-            expiresIn: '1h'
+            expiresIn: '30d'
         });
 
         res.status(201).json({
@@ -71,7 +71,7 @@ export const login = async (req, res, next) => {
         }
 
         const token = jwt.sign({ id: rowUser.id, username: rowUser.username, email: rowUser.email }, jwtSecret, {
-            expiresIn: '1h'
+            expiresIn: '30d'
         });
 
         res.status(200).json({
@@ -111,7 +111,7 @@ export const loginDev = (req, res, next) => {
         const randomUser = dummyUsers[Math.floor(Math.random() * dummyUsers.length)];
 
         const token = jwt.sign({ id: randomUser.id, username: randomUser.username, email: randomUser.email }, jwtSecret, {
-            expiresIn: '1h'
+            expiresIn: '30d'
         });
 
         res.status(200).json({
