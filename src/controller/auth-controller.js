@@ -24,9 +24,9 @@ export const register = async (req, res, next) => {
             [user, email, hashedPassword]
         );
 
-        const user = result.rows[0];
+        const userRow = result.rows[0];
 
-        const token = jwt.sign({ id: user.id, username: user.username, email: user.email }, jwtSecret, {
+        const token = jwt.sign({ id: userRow.id, username: userRow.username, email: userRow.email }, jwtSecret, {
             expiresIn: '1h'
         });
 
@@ -34,10 +34,10 @@ export const register = async (req, res, next) => {
             message: 'User registered successfully',
             token,
             user: {
-                id: user.id,
-                username: user.username,
-                email: user.email,
-                created_at: user.created_at
+                id: userRow.id,
+                username: userRow.username,
+                email: userRow.email,
+                created_at: userRow.created_at
             }
         });
     } catch (error) {
