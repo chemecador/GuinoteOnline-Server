@@ -9,6 +9,8 @@ export function handleGameConnection(io, socket) {
     console.log('A player connected:', socket.id);
 
     socket.on('search_game', (token) => {
+        console.log(`Petición de search_game recibida del token: ${token}`);
+    
         const username = validateToken(token);
         if (!username) { 
             socket.emit('error', { message: 'Invalid token' });
@@ -56,6 +58,29 @@ export function handleGameConnection(io, socket) {
         }
     });
 
+    socket.on('play_card', (data) => {
+        
+        console.log('Data received:', data);
+
+        const { card, token } = data;
+        console.log(`Petición de play_card recibida del token: ${token}`);
+    
+        if (!token) {
+            console.error('No token provided');
+            socket.emit('error', { message: 'No token provided' });
+            return;
+        }
+        const username = validateToken(token);
+    
+        if (!username) {
+            socket.emit('error', { message: 'Invalid token' });
+            return;
+        }
+        console.log(`El jugador ${username} ha tirado la carta ${card.name}`);
+    
+        socket.to(gameId).emit('opponent_played_card', { card, username });
+    });
+
     socket.on('disconnect', () => {
         console.log('A player disconnected:', socket.id);
         if (waitingPlayer && waitingPlayer.socket === socket) {
@@ -69,7 +94,7 @@ function validateToken(token) {
         const decoded = jwt.verify(token, secretKey);
         return decoded.username; 
     } catch (err) {
-        console.error("Token validation failed:", err.message);
+        console.error(`Token validation failed for token: ${token}. Error: ${err.message}`);
         return null;
     }
 }
