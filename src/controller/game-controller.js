@@ -60,26 +60,30 @@ export function handleGameConnection(io, socket) {
 
     socket.on('play_card', (data) => {
         
-        console.log('Data received:', data);
+        const token = data.token;
+        const card = data.card;
 
-        const { card, token } = data;
-        console.log(`Petición de play_card recibida del token: ${token}`);
-    
-        if (!token) {
+       if (!token) {
             console.error('No token provided');
             socket.emit('error', { message: 'No token provided' });
             return;
         }
+    
         const username = validateToken(token);
     
         if (!username) {
             socket.emit('error', { message: 'Invalid token' });
             return;
         }
-        console.log(`El jugador ${username} ha tirado la carta ${card.name}`);
     
-        socket.to(gameId).emit('opponent_played_card', { card, username });
+        if (!card) {
+            console.error(`El jugador ${username} intentó jugar una carta nula`);
+            socket.emit('error', { message: 'Invalid card' });
+            return;
+        }
+        console.log(`El jugador ${username} ha tirado la carta ${card}`);
     });
+    
 
     socket.on('disconnect', () => {
         console.log('A player disconnected:', socket.id);
