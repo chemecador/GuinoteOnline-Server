@@ -32,26 +32,30 @@ export function handleGameConnection(io, socket) {
             const shuffledDeck = shuffleDeck([...allCards]);
             const { player1Cards, player2Cards, triunfoCard } = dealCards(shuffledDeck);
 
-            const startingPlayer = waitingPlayer.username;
-
             waitingPlayer.socket.emit('game_start', {
                 message: 'Partida encontrada',
                 gameId,
-                myUsername: waitingPlayer.username,
-                opponentUsername: username,
+                players: [
+                    { role: 'player1', username: waitingPlayer.username },
+                    { role: 'player2', username: username }
+                ],
+                myRole: 'player1',
                 playerCards: player1Cards,
                 triunfoCard,
-                currentTurn: startingPlayer
+                currentTurn: 'player1'
             });
-
+            
             socket.emit('game_start', {
                 message: 'Partida encontrada',
                 gameId,
-                myUsername: username,
-                opponentUsername: waitingPlayer.username,
+                players: [
+                    { role: 'player1', username: waitingPlayer.username },
+                    { role: 'player2', username: username }
+                ],
+                myRole: 'player2',
                 playerCards: player2Cards,
                 triunfoCard,
-                currentTurn: startingPlayer
+                currentTurn: 'player1'
             });
 
             waitingPlayer = null;
@@ -82,6 +86,17 @@ export function handleGameConnection(io, socket) {
             return;
         }
         console.log(`El jugador ${username} ha tirado la carta ${card}`);
+
+        const players = data.players; 
+        const currentPlayerIndex = players.findIndex(player => player.username === username);
+        const nextPlayerIndex = (currentPlayerIndex + 1) % players.length;
+        const nextPlayer = players[nextPlayerIndex];
+
+        socket.to(data.gameId).emit('card_played', {
+            card: card,
+            playedBy: username,
+            currentTurn: nextPlayer.username
+        });
     });
     
 
