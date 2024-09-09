@@ -153,11 +153,9 @@ export function handleGameConnection(io, socket) {
     game.currentTurn = nextPlayer.role;
 
     if (game.currentRound.length === game.players.length) {
-      const winnerRole = determineRoundWinner(
-        game.currentRound,
-        game.triunfoCard.suit
-      );
-      console.log(`El ganador de la mano es: ${winnerRole}`);
+      const triunfoSuit = getCardSuit(game.triunfoCard);
+
+      const winnerRole = determineRoundWinner(game.currentRound, triunfoSuit);
 
       const points = calculateRoundPoints(game.currentRound);
 
@@ -166,6 +164,18 @@ export function handleGameConnection(io, socket) {
 
       const team1Points = game.teamPoints[1];
       const team2Points = game.teamPoints[2];
+
+      console.log("=== Resumen de la ronda ===");
+      console.log(`Cartas jugadas:`);
+      game.currentRound.forEach(({ player, card }) => {
+        console.log(`${player} jugó la carta ${card} de ${card}`);
+      });
+      console.log(`Ganador de la ronda: ${winnerRole}`);
+      console.log(`Puntos ganados en la ronda: ${points}`);
+      console.log(
+        `Puntos totales: Equipo 1: ${team1Points}, Equipo 2: ${team2Points}`
+      );
+      console.log("==========================");
 
       io.in(gameId).emit("round_winner", {
         winner: winnerRole,
@@ -199,19 +209,20 @@ export function handleGameConnection(io, socket) {
 
 function determineRoundWinner(cards, triunfoSuit) {
   const firstCard = cards[0].card;
-  const initialSuit = firstCard.suit;
-
   let winningCard = firstCard;
   let winningPlayer = cards[0].player;
 
   for (let i = 1; i < cards.length; i++) {
     const currentCard = cards[i].card;
 
-    if (currentCard.suit === triunfoSuit && winningCard.suit !== triunfoSuit) {
+    const currentCardSuit = getCardSuit(currentCard);
+    const winningCardSuit = getCardSuit(winningCard);
+
+    if (currentCardSuit === triunfoSuit && winningCardSuit !== triunfoSuit) {
       winningCard = currentCard;
       winningPlayer = cards[i].player;
-    } else if (currentCard.suit === winningCard.suit) {
-      if (getCardValue(currentCard) > getCardValue(winningCard)) {
+    } else if (currentCardSuit === winningCardSuit) {
+      if (getCardStrength(currentCard) > getCardStrength(winningCard)) {
         winningCard = currentCard;
         winningPlayer = cards[i].player;
       }
@@ -225,19 +236,47 @@ function calculateRoundPoints(cards) {
   return cards.reduce((total, { card }) => total + getCardValue(card), 0);
 }
 
+// Cuando hay dos cartas del mismo palo, gana la que tiene más fuerza
+function getCardStrength(card) {
+  const cardValue = card.replace(/[a-zA-Z]+/, "");
+
+  const strength = {
+    1: 9,
+    3: 8,
+    12: 7,
+    10: 6,
+    11: 5,
+    7: 4,
+    6: 3,
+    5: 2,
+    4: 1,
+    2: 0,
+  };
+
+  return strength[cardValue] || 0;
+}
+
+function getCardSuit(card) {
+  return card.replace(/\d+/, "");
+}
+
 function getCardValue(card) {
+  const cardValue = card.replace(/[a-zA-Z]+/, "");
+
   const values = {
-    as: 11,
+    1: 11,
     3: 10,
-    rey: 4,
-    caballo: 3,
-    sota: 2,
+    12: 4,
+    10: 3,
+    11: 2,
     7: 0,
     6: 0,
     5: 0,
     4: 0,
+    2: 0,
   };
-  return values[card.value] || 0;
+
+  return values[cardValue] || 0;
 }
 
 function validateToken(token) {
