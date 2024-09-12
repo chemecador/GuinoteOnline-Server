@@ -190,8 +190,20 @@ export function handleGameConnection(io, socket) {
       game.currentTurn = winnerRole;
 
       game.players.forEach((player) => {
-        const newCard = game.deck.pop();
+        let newCard;
+
+        if (game.deck.length === 0 && game.triunfoCard) {
+          newCard = game.triunfoCard;
+          game.triunfoCard = null;
+        } else if (game.deck.length > 0) {
+          newCard = game.deck.pop();
+        } else {
+          io.in(gameId).emit("deck_empty");
+          return;
+        }
+
         if (newCard) {
+          console.log(`Repartiendo la carta ${newCard} a ${player.username}`);
           player.hand.push(newCard);
           player.socket.emit("new_card", { newCard });
         }
@@ -257,6 +269,10 @@ function getCardStrength(card) {
 }
 
 function getCardSuit(card) {
+  if (!card) {
+    console.error("La carta es nula o indefinida.");
+    return null;
+  }
   return card.replace(/\d+/, "");
 }
 
