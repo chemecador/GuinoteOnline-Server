@@ -154,13 +154,20 @@ export function handleGameConnection(io, socket) {
 
     if (game.currentRound.length === game.players.length) {
       const triunfoSuit = getCardSuit(game.triunfoCard);
-
       const winnerRole = determineRoundWinner(game.currentRound, triunfoSuit);
-
       const points = calculateRoundPoints(game.currentRound);
 
       const winningPlayer = game.players.find((p) => p.role === winnerRole);
       game.teamPoints[winningPlayer.team] += points;
+
+      if (game.players.every((player) => player.hand.length === 0)) {
+        console.log("Última mano ganada por:", winnerRole);
+
+        game.teamPoints[winningPlayer.team] += 10;
+        console.log(
+          `Equipo ${winningPlayer.team} ha ganado las 10 últimas y recibe 10 puntos adicionales.`
+        );
+      }
 
       const team1Points = game.teamPoints[1];
       const team2Points = game.teamPoints[2];
@@ -173,10 +180,10 @@ export function handleGameConnection(io, socket) {
       console.log(`Ganador de la ronda: ${winnerRole}`);
       console.log(`Puntos ganados en la ronda: ${points}`);
       console.log(
-        `Puntos totales: Equipo 1: ${team1Points}, Equipo 2: ${team2Points}`
+        `Puntos totales: Equipo 1: ${team1Points}, Equipo 2: ${team2Points}
+        Quedan : ${game.deck.length} cartas en el mazo.`
       );
       console.log("==========================");
-
       io.in(gameId).emit("round_winner", {
         winner: winnerRole,
         pointsGained: points,
