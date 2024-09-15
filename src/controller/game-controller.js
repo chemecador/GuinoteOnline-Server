@@ -218,6 +218,44 @@ export function handleGameConnection(io, socket) {
     }
   });
 
+  socket.on("cantar", (data) => {
+    const points = data.points;
+    const suit = data.suit;
+    const player = data.player;
+    const gameId = data.gameId;
+    const game = games[gameId];
+
+    if (!game) {
+      console.error("Game not found or game is undefined");
+      socket.emit("error", { message: "Game not found" });
+      return;
+    }
+
+    const currentPlayer = game.players.find((p) => p.socket.id === socket.id);
+    if (!currentPlayer) {
+      console.error(`No player found with socket id: ${socket.id}`);
+      socket.emit("error", { message: "Player not found" });
+      return;
+    }
+    console.log(`Petición de cantar recibida de :${currentPlayer}`);
+
+    if (currentPlayer) {
+      game.teamPoints[currentPlayer.team] += points;
+
+      io.in(gameId).emit("cantar_notificacion", {
+        player: currentPlayer.username,
+        points,
+        suit,
+        team1Points: game.teamPoints[1],
+        team2Points: game.teamPoints[2],
+      });
+
+      console.log(
+        `Jugador ${currentPlayer.username} cantó ${points} puntos en el palo ${suit}`
+      );
+    }
+  });
+
   socket.on("disconnect", () => {
     console.log("A player disconnected:", socket.id);
     if (waitingPlayer && waitingPlayer.socket === socket) {
