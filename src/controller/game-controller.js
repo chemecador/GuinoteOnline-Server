@@ -148,6 +148,7 @@ export function handleGameConnection(io, socket) {
       card: card,
       playedBy: player.role,
       currentTurn: nextPlayer.role,
+      initialCard: game.currentRound[0].card,
     });
 
     game.currentTurn = nextPlayer.role;
@@ -347,7 +348,7 @@ function handleRoundFinish(io, game, gameId) {
   game.currentTurn = winnerRole;
 
   game.players.forEach((player) => {
-    const newCard = popCard(io, game);
+    const newCard = popCard(io, game, gameId);
 
     if (newCard) {
       console.log(`Repartiendo la carta ${newCard} a ${player.username}`);
@@ -391,16 +392,16 @@ function calculateRoundPoints(cards) {
   return cards.reduce((total, { card }) => total + getCardValue(card), 0);
 }
 
-function popCard(io, game) {
+function popCard(io, game, gameId) {
   if (game.deck.length > 0) {
     return game.deck.pop(); // Ronda normal
   } else if (game.deck.length === 0 && game.triunfoCard) {
     const card = game.triunfoCard;
     game.triunfoCard = null;
-    io.in(game.gameId).emit('de_ultimas', {
+    io.in(gameId).emit('de_ultimas', {
       message: '¡De últimas!',
     });
-    console.log('¡De últimas!');
+    console.log(`Emitido evento 'de_ultimas' para la sala ${game.gameId}`);
     return card;
   } else {
     // return handleDeUltimas(io, game);
