@@ -7,89 +7,27 @@ let waitingPlayer = null;
 const games = {};
 
 export function handleGameConnection(io, socket) {
-  console.log('A player connected:', socket.id);
-
   socket.on('search_game', (token) => {
-    console.log(`Petición de search_game recibida del token: ${token}`);
-
+  
     const username = validateToken(token);
     if (!username) {
       socket.emit('error', { message: 'Invalid token' });
       return;
     }
-
+  
     if (waitingPlayer === null) {
       waitingPlayer = { socket, username };
       console.log(`Jugador 1 conectado: ${username}`);
       socket.emit('waiting', { message: 'Esperando rival...' });
     } else {
-      const gameId = `game_${socket.id}_${waitingPlayer.socket.id}`;
-      socket.join(gameId);
-      waitingPlayer.socket.join(gameId);
-
       console.log(`Jugador 2 conectado: ${username}`);
-      console.log(
-        `Emparejando jugadores: ${waitingPlayer.username} vs ${username}`
-      );
-
-      const shuffledDeck = shuffleDeck([...allCards]);
-      const { player1Cards, player2Cards, triunfoCard } =
-        dealCards(shuffledDeck);
-
-      games[gameId] = {
-        players: [
-          {
-            role: 'player1',
-            username: waitingPlayer.username,
-            hand: player1Cards,
-            socket: waitingPlayer.socket,
-            team: 1,
-          },
-          {
-            role: 'player2',
-            username: username,
-            hand: player2Cards,
-            socket: socket,
-            team: 2,
-          },
-        ],
-        triunfoCard,
-        currentTurn: 'player1',
-        currentRound: [],
-        teamPoints: { 1: 0, 2: 0 },
-        deck: shuffledDeck,
-      };
-
-      waitingPlayer.socket.emit('game_start', {
-        message: 'Partida encontrada',
-        gameId,
-        players: [
-          { role: 'player1', username: waitingPlayer.username },
-          { role: 'player2', username: username },
-        ],
-        myRole: 'player1',
-        playerCards: player1Cards,
-        triunfoCard,
-        currentTurn: 'player1',
-      });
-
-      socket.emit('game_start', {
-        message: 'Partida encontrada',
-        gameId,
-        players: [
-          { role: 'player1', username: waitingPlayer.username },
-          { role: 'player2', username: username },
-        ],
-        myRole: 'player2',
-        playerCards: player2Cards,
-        triunfoCard,
-        currentTurn: 'player1',
-      });
-
+      console.log(`Emparejando jugadores: ${waitingPlayer.username} vs ${username}`);
+      const gameId = setupNewGame(io, waitingPlayer, socket, username);
+      console.log(`Partida ${gameId} creada.`);
       waitingPlayer = null;
     }
   });
-
+  
   socket.on('play_card', (data) => {
     const token = data.token;
     const card = data.card;
@@ -103,12 +41,14 @@ export function handleGameConnection(io, socket) {
 
     const username = validateToken(token);
     if (!username) {
+      console.error('Invalid token');
       socket.emit('error', { message: 'Invalid token' });
       return;
     }
 
     const game = games[gameId];
     if (!game) {
+      console.error('Game not found');
       socket.emit('error', { message: 'Game not found' });
       return;
     }
@@ -200,8 +140,6 @@ export function handleGameConnection(io, socket) {
   socket.on('exchange_seven', (data) => {
     const gameId = data.gameId;
     const token = data.token;
-
-    console.log(`Datos recibidos para intercambio de 7: ${JSON.stringify(data)}`);
     const username = validateToken(token);
     if (!username) {
       console.error('Invalid token');
@@ -220,11 +158,7 @@ export function handleGameConnection(io, socket) {
     const triumphSuit = game.triunfoCard.replace(/\d+$/, '');
     const sevenCard = `${triumphSuit}7`;
     const previousTriunfoCard = game.triunfoCard;
-
-    console.log('Triunfo actual:', game.triunfoCard);
-    console.log('Mano del jugador:', player.hand);
-    console.log('Carta buscada para el intercambio:', sevenCard);
-
+    
     if (!player.hand.includes(sevenCard)) {
       console.error('El jugador no tiene el 7 del triunfo');
       socket.emit('error', { message: 'No tienes el 7 del triunfo' });
@@ -251,6 +185,87 @@ export function handleGameConnection(io, socket) {
     }
   });
 }
+
+function setupNewGame(io, waitingPlayer, playerSocket, playerUsername) {
+  const gameId = `game_${playerSocket.id}_${waitingPlayer.socket.id}`;
+  const shuffledDeck = shuffleDeck([...allCards]);
+  const { player1Cards, player2Cards, triunfoCard } = dealCards(shuffledDeck);
+
+  const game = {
+    players: [
+      {
+        role: 'player1',
+        username: waitingPlayer.username,
+        hand: player1Cards,
+        socket: waitingPlayer.socket,
+        team: 1,
+      },
+      {
+        role: 'player2',
+        username: playerUsername,
+        hand: player2Cards,
+        socket: playerSocket,
+        team: 2,
+      },
+    ],
+    triunfoCard,
+    currentTurn: 'player1',
+    currentRound: [],
+    teamPoints: { 1: 0, 2: 0 },
+    deck: shuffledDeck,
+    deVueltas: false,
+  };
+
+  games[gameId] = game;
+
+  waitingPlayer.socket.join(gameId);
+  playerSocket.join(gameId);
+  emitGameStart(io, gameId, waitingPlayer, playerSocket, player1Cards, player2Cards, triunfoCard, playerUsername);
+
+  return gameId;
+}
+
+
+function emitGameStart(io, gameId, waitingPlayer, playerSocket, player1Cards, player2Cards, triunfoCard, playerUsername) {
+  const playersInfo = [
+    { role: 'player1', username: waitingPlayer.username },
+    { role: 'player2', username: playerUsername },
+  ];
+
+  waitingPlayer.socket.emit('game_start', {
+    message: 'Partida encontrada',
+    gameId,
+    players: playersInfo,
+    myRole: 'player1',
+    playerCards: player1Cards,
+    triunfoCard,
+    currentTurn: 'player1',
+  });
+
+  playerSocket.emit('game_start', {
+    message: 'Partida encontrada',
+    gameId,
+    players: playersInfo,
+    myRole: 'player2',
+    playerCards: player2Cards,
+    triunfoCard,
+    currentTurn: 'player1',
+  });  
+}
+
+
+function dealInitialCards(deck) {
+  const player1Cards = [];
+  const player2Cards = [];
+
+  for (let i = 0; i < 6; i++) {
+    player1Cards.push(deck.pop());
+    player2Cards.push(deck.pop());
+  }
+
+  return { player1Cards, player2Cards };
+}
+
 
 // Cuando hay dos cartas del mismo palo, gana la que tiene más fuerza
 function getCardStrength(card) {
@@ -345,6 +360,11 @@ function handleRoundFinish(io, game, gameId) {
 
   game.currentRound = [];
 
+  if (game.isDeVueltas && (team1Points >= 100 || team2Points >= 100)) {
+    handleGameEnded(io, gameId, team1Points, team2Points);
+    return;
+  }
+
   game.currentTurn = winnerRole;
 
   game.players.forEach((player) => {
@@ -357,7 +377,6 @@ function handleRoundFinish(io, game, gameId) {
     }
   });
 
-  // Verificar si todos los jugadores se quedan sin cartas (fin del juego o de vueltas)
   if (game.players.every((player) => player.hand.length === 0)) {
     handleFinal(io, game, winningPlayer, gameId);
   }
@@ -394,7 +413,7 @@ function calculateRoundPoints(cards) {
 
 function popCard(io, game, gameId) {
   if (game.deck.length > 0) {
-    return game.deck.pop(); // Ronda normal
+    return game.deck.pop();
   } else if (game.deck.length === 0 && game.triunfoCard) {
     const card = game.triunfoCard;
     game.triunfoCard = null;
@@ -423,7 +442,7 @@ function handleFinal(io, game, winningPlayer, gameId) {
   if (team1Points >= 100 || team2Points >= 100) {
     handleGameEnded(io, gameId, team1Points, team2Points);
   } else {
-    handleDeVueltas(io, team1Points, team2Points, gameId);
+    handleDeVueltas(io, game, winningPlayer, gameId);
   }
 }
 
@@ -441,12 +460,36 @@ function handleGameEnded(io, gameId, team1Points, team2Points) {
   });
 }
 
-function handleDeVueltas(io, team1Points, team2Points, gameId) {
+function handleDeVueltas(io, game, winningPlayer, gameId) {
   console.log('Ningún equipo ha alcanzado los 100 puntos. Vamos de vueltas.');
+
+  game.currentRound = []; 
+  game.deck = shuffleDeck([...allCards]);
+  game.triunfoCard = game.deck.pop();
+  game.players.forEach((player) => {
+    player.hand = dealInitialCards(game.deck); 
+  });
+
+  const winningPlayerIndex = game.players.findIndex((p) => p.role === winningPlayer.role);
+  const nextPlayerIndex = (winningPlayerIndex + 1) % game.players.length; 
+  game.currentTurn = game.players[nextPlayerIndex].role;
+
   io.in(gameId).emit('de_vueltas', {
     message: 'Ningún equipo ha alcanzado los 100 puntos. Vamos de vueltas.',
-    team1Points,
-    team2Points,
+    team1Points: game.teamPoints[1],
+    team2Points: game.teamPoints[2],
+    triunfoCard: game.triunfoCard,
+    playerHands: game.players.map((player) => ({
+      role: player.role,
+      hand: player.hand,
+    })),
+    currentTurn: game.currentTurn,
   });
+
+  console.log('=== Nueva partida de vueltas iniciada ===');
+  console.log(`Puntos iniciales: Equipo 1: ${game.teamPoints[1]}, Equipo 2: ${game.teamPoints[2]}`);
+  console.log(`Triunfo: ${game.triunfoCard}`);
+  console.log(`Turno inicial: ${game.currentTurn}`);
 }
+
 
